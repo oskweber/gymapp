@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0908">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gym">
+<title>Gym Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccff00'%3E%3Cpath d='M14.4 14.4 9.6 9.6'/%3E%3C/svg%3E">
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+<script crossorigin src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  html, body { background: #0a0908; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+  body { font-family: 'Manrope', system-ui, sans-serif; color: #f5f3ef; }
+  #root { min-height: 100vh; }
+  .boot { display: flex; align-items: center; justify-content: center; height: 100vh; color: #8a8580; font-size: 11px; letter-spacing: 0.4em; text-transform: uppercase; }
+  .boot::before { content: ''; width: 6px; height: 6px; border-radius: 999px; background: #ccff00; margin-right: 12px; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.4 } 50% { opacity: 1 } }
+  /* Hide number input arrows */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  input[type=number] { -moz-appearance: textfield; }
+</style>
+</head>
+<body>
+<div id="root"><div class="boot">Loading</div></div>
+<script type="text/babel" data-type="module" data-presets="env,react">
+
+// === Globals from CDN ===
+const { useState, useEffect, useMemo, useRef } = React;
+const { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, ReferenceLine } = Recharts;
+
+// === Icon components (lucide-derived inline SVG) ===
+const Ico = ({ d, size = 16, style, className }) => {
+  const items = d.split("|");
+  return React.createElement("svg", {
+    width: size, height: size, viewBox: "0 0 24 24",
+    fill: "none", stroke: "currentColor", strokeWidth: 2,
+    strokeLinecap: "round", strokeLinejoin: "round",
+    style, className
+  }, items.map((p, i) => {
+    if (p.startsWith("c:")) {
+      const parts = p.slice(2).split(",");
+      return React.createElement("circle", { key: i, cx: parts[0], cy: parts[1], r: parts[2] });
+    }
+    return React.createElement("path", { key: i, d: p });
+  }));
+};
+
+const Home = (p) => <Ico d={`m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z|M9 22V12h6v10`} {...p} />;
+const Plus = (p) => <Ico d={`M5 12h14|M12 5v14`} {...p} />;
+const Trash2 = (p) => <Ico d={`M3 6h18|M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6|M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2|M10 11v6|M14 11v6`} {...p} />;
+const X = (p) => <Ico d={`M18 6 6 18|M6 6l12 12`} {...p} />;
+const Check = (p) => <Ico d={`M20 6 9 17l-5-5`} {...p} />;
+const ChevronRight = (p) => <Ico d={`m9 18 6-6-6-6`} {...p} />;
+const ChevronLeft = (p) => <Ico d={`m15 18-6-6 6-6`} {...p} />;
+const TrendingUp = (p) => <Ico d={`m22 7-8.5 8.5-5-5L2 17|M16 7h6|M22 7v6`} {...p} />;
+const Award = (p) => <Ico d={`c:12,8,6|m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526`} {...p} />;
+const Calendar = (p) => <Ico d={`M8 2v4|M16 2v4|M3 10h18|M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z`} {...p} />;
+const Activity = (p) => <Ico d={`M22 12h-4l-3 9L9 3l-3 9H2`} {...p} />;
+const Flame = (p) => <Ico d={`M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z`} {...p} />;
+const Edit2 = (p) => <Ico d={`M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z|m15 5 4 4`} {...p} />;
+const ArrowUp = (p) => <Ico d={`m5 12 7-7 7 7|M12 19V5`} {...p} />;
+const ArrowDown = (p) => <Ico d={`M12 5v14|m19 12-7 7-7-7`} {...p} />;
+const AlertCircle = (p) => <Ico d={`c:12,12,10|M12 8v4|M12 16h.01`} {...p} />;
+const Download = (p) => <Ico d={`M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4|m7 10 5 5 5-5|M12 15V3`} {...p} />;
+const Clock = (p) => <Ico d={`c:12,12,10|M12 6v6l4 2`} {...p} />;
+const Apple = (p) => <Ico d={`M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06z|M10 2c1 .5 2 2 2 5`} {...p} />;
+const ScrollText = (p) => <Ico d={`M19 17V5a2 2 0 0 0-2-2H4|M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 0 1-4 0V5a2 2 0 0 0-2-2H4|M15 8h-5|M15 12h-5`} {...p} />;
+const Dumbbell = (p) => <Ico d={`M14.4 14.4 9.6 9.6|M18.657 21.485a2 2 0 1 1-2.829-2.828l-1.767 1.768a2 2 0 1 1-2.829-2.829l6.364-6.364a2 2 0 1 1 2.829 2.829l-1.768 1.767a2 2 0 1 1 2.828 2.829z|M21.5 21.5l-1.4-1.4|M3.9 3.9 2.5 2.5|M6.404 12.768a2 2 0 1 1-2.829-2.829l1.768-1.767a2 2 0 1 1-2.828-2.829l2.828-2.828a2 2 0 1 1 2.829 2.828l1.767-1.768a2 2 0 1 1 2.829 2.829z`} {...p} />;
+const BarChart3 = (p) => <Ico d={`M3 3v18h18|M18 17V9|M13 17V5|M8 17v-3`} {...p} />;
+const SettingsIcon = (p) => <Ico d={`M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z|c:12,12,3`} {...p} />;
+const Target = (p) => <Ico d={`c:12,12,10|c:12,12,6|c:12,12,2`} {...p} />;
+const Zap = (p) => <Ico d={`M13 2 3 14h9l-1 8 10-12h-9l1-8z`} {...p} />;
+const Minus = (p) => <Ico d={`M5 12h14`} {...p} />;
+
+// ============ CONSTANTS ============
+const CAT_COLOR = {
+  push: '#ff6b35',
+  pull: '#4ecdc4',
+  legs: '#c084fc',
+  diet: '#fbbf24',
+  overview: '#ccff00',
+  analytics: '#ccff00',
+};
+
+const ACCENT = '#ccff00';
+const BG = '#0a0908';
+const CARD = '#161412';
+const CARD_HI = '#1f1c19';
+const BORDER = '#2a2724';
+const TEXT = '#f5f3ef';
+const MUTED = '#8a8580';
+const DIM = '#5a5550';
+
+const DEFAULT_CONFIG = {
+  units: 'kg',
+  macroTargets: { protein: 180, carbs: 250, fats: 70 },
+  exercises: {
+    push: [
+      { id: 'p1', name: 'DB Bench Press', type: 'weight', notes: 'Incline or flat' },
+      { id: 'p2', name: 'Shoulder Press', type: 'weight', notes: 'Barbell or dumbbell' },
+      { id: 'p3', name: 'Cable Fly (Low → High)', type: 'weight' },
+      { id: 'p4', name: 'Cable Fly (High → Low)', type: 'weight' },
+      { id: 'p5', name: 'Tricep Pushdown', type: 'weight' },
+    ],
+    pull: [
+      { id: 'pl1', name: 'Negative Pull-ups', type: 'weight', notes: 'Weight = added load (0 = bodyweight)' },
+      { id: 'pl2', name: 'Machine Row', type: 'weight' },
+      { id: 'pl3', name: 'Single-Arm Lat Pulldown', type: 'weight' },
+      { id: 'pl4', name: 'Face Pulls (Rope)', type: 'weight' },
+      { id: 'pl5', name: 'Bicep Curls', type: 'weight' },
+    ],
+    legs: [
+      { id: 'l1', name: 'Landmine Squat', type: 'weight' },
+      { id: 'l2', name: 'Landmine Rotations', type: 'weight', notes: 'Anti-rotation core' },
+      { id: 'l3', name: 'Barbell Squat', type: 'weight' },
+      { id: 'l4', name: 'Romanian Deadlift', type: 'weight', notes: 'Hip hinge for hamstring activation' },
+      { id: 'l5', name: 'Seated Calf Raises', type: 'weight' },
+      { id: 'l6', name: 'Plank', type: 'time', notes: 'Track in seconds' },
+    ],
+  },
+};
+
+// ============ UTILITIES ============
+const todayStr = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const formatShort = (str) => {
+  if (!str) return '';
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+const formatLong = (str) => {
+  const d = new Date(str + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+};
+
+const daysBetween = (d1, d2) => {
+  const a = new Date(d1 + 'T00:00:00');
+  const b = new Date(d2 + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+};
+
+const calc1RM = (w, r) => {
+  if (!w || !r || r < 1) return 0;
+  if (r === 1) return w;
+  return Math.round(w * (1 + r / 30) * 10) / 10;
+};
+
+const calcCal = (p, c, f) =>
+  Math.round((Number(p) || 0) * 4 + (Number(c) || 0) * 4 + (Number(f) || 0) * 9);
+
+const genId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+const sumVolume = (sets) =>
+  sets.reduce((a, s) => a + (Number(s.weight) || 0) * (Number(s.reps) || 0), 0);
+
+const startOfWeek = (dateStr) => {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setDate(d.getDate() + diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const weekLabel = (date) =>
+  `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+
+// ============ STORAGE ============
+const loadKey = (key, fallback) => {
+  try {
+    const v = localStorage.getItem(key);
+    if (v !== null) return JSON.parse(v);
+  } catch (e) {}
+  return fallback;
+};
+
+const saveKey = (key, val) => {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch (e) { console.error('Save failed', key, e); return false; }
+};
+
+// ============ FONTS ============
+const useFonts = () => {
+  useEffect(() => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap';
+    document.head.appendChild(link);
+    return () => { try { document.head.removeChild(link); } catch {} };
+  }, []);
+};
+
+const F_DISPLAY = "'Bebas Neue', Impact, sans-serif";
+const F_BODY = "'Manrope', system-ui, sans-serif";
+const F_MONO = "'JetBrains Mono', monospace";
+
+// ============ REUSABLE UI ============
+const StatCard = ({ label, value, unit, accent = ACCENT, sub }) => (
+  <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+    <div className="text-[10px] uppercase tracking-[0.2em]" style={{ color: MUTED, fontFamily: F_BODY, fontWeight: 600 }}>{label}</div>
+    <div className="flex items-baseline gap-1 mt-2">
+      <span style={{ fontFamily: F_DISPLAY, fontSize: 36, lineHeight: 1, color: accent }}>{value}</span>
+      {unit && <span className="text-xs" style={{ color: MUTED, fontFamily: F_MONO }}>{unit}</span>}
+    </div>
+    {sub && <div className="text-xs mt-1" style={{ color: DIM, fontFamily: F_BODY }}>{sub}</div>}
+  </div>
+);
+
+const SectionTitle = ({ children, accent }) => (
+  <div className="flex items-center gap-3 mb-3">
+    <div className="h-px flex-1" style={{ background: BORDER }} />
+    <div className="text-[11px] uppercase tracking-[0.25em]" style={{ color: accent || MUTED, fontFamily: F_BODY, fontWeight: 700 }}>{children}</div>
+    <div className="h-px flex-1" style={{ background: BORDER }} />
+  </div>
+);
+
+const Pill = ({ active, color, children, onClick }) => (
+  <button
+    onClick={onClick}
+    className="px-3 py-1.5 rounded-full text-xs uppercase tracking-wider transition-all"
+    style={{
+      fontFamily: F_BODY, fontWeight: 700,
+      background: active ? color : 'transparent',
+      color: active ? BG : MUTED,
+      border: `1px solid ${active ? color : BORDER}`,
+    }}
+  >{children}</button>
+);
+
+const NumberInput = ({ value, onChange, placeholder, step = 1, suffix }) => (
+  <div className="relative">
+    <input
+      type="number"
+      inputMode="decimal"
+      step={step}
+      value={value ?? ''}
+      onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+      placeholder={placeholder}
+      className="w-full rounded-xl px-3 py-3 outline-none border focus:border-[#ccff00]"
+      style={{ background: CARD_HI, borderColor: BORDER, color: TEXT, fontFamily: F_MONO, fontSize: 16 }}
+    />
+    {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: MUTED, fontFamily: F_MONO }}>{suffix}</span>}
+  </div>
+);
+
+// ============ MAIN APP ============
+function App() {
+  useFonts();
+  const [tab, setTab] = useState('overview');
+  const [config, setConfig] = useState(() => {
+    const c = loadKey('config', DEFAULT_CONFIG);
+    return { ...DEFAULT_CONFIG, ...c, exercises: c.exercises || DEFAULT_CONFIG.exercises, macroTargets: { ...DEFAULT_CONFIG.macroTargets, ...(c.macroTargets || {}) } };
+  });
+  const [workouts, setWorkouts] = useState(() => loadKey('workouts', []));
+  const [diet, setDiet] = useState(() => loadKey('diet', []));
+  const [bodyweight, setBodyweight] = useState(() => loadKey('bodyweight', []));
+  const [loading, setLoading] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
+  const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
+  const [storageOk, setStorageOk] = useState(null); // null | true | false
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('__health', String(Date.now()));
+      setStorageOk(!!localStorage.getItem('__health'));
+    } catch (e) { setStorageOk(false); }
+  }, []);
+
+  const persist = (key, val) => {
+    setSaveStatus('saving');
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus((s) => s === 'saved' ? 'idle' : s), 1500);
+    } catch (e) {
+      console.error('Save failed', key, e);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus((s) => s === 'error' ? 'idle' : s), 3000);
+    }
+  };
+
+  const updateConfig = (next) => { setConfig(next); persist('config', next); };
+  const updateWorkouts = (next) => { setWorkouts(next); persist('workouts', next); };
+  const updateDiet = (next) => { setDiet(next); persist('diet', next); };
+  const updateBodyweight = (next) => { setBodyweight(next); persist('bodyweight', next); };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: BG, color: TEXT, fontFamily: F_BODY }}>
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT }} />
+          <span className="text-xs uppercase tracking-[0.3em]" style={{ color: MUTED }}>Loading</span>
+        </div>
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'overview', icon: Home, label: 'Home', color: ACCENT },
+    { id: 'push', icon: ArrowUp, label: 'Push', color: CAT_COLOR.push },
+    { id: 'pull', icon: ArrowDown, label: 'Pull', color: CAT_COLOR.pull },
+    { id: 'legs', icon: Activity, label: 'Legs', color: CAT_COLOR.legs },
+    { id: 'diet', icon: Apple, label: 'Diet', color: CAT_COLOR.diet },
+  ];
+
+  return (
+    <div className="min-h-screen pb-24" style={{ background: BG, color: TEXT, fontFamily: F_BODY }}>
+      {/* Storage warning banner */}
+      {storageOk === false && (
+        <div className="px-4 py-2 text-center text-[11px]" style={{ background: '#fb7185', color: BG, fontWeight: 700 }}>
+          ⚠ Storage unavailable — data won't persist. Try reloading.
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="sticky top-0 z-20 px-4 pt-4 pb-3" style={{ background: `linear-gradient(${BG} 70%, transparent)` }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em] flex items-center gap-2" style={{ color: MUTED }}>
+              {formatLong(todayStr())}
+              {saveStatus === 'saving' && <span style={{ color: MUTED }}>· saving…</span>}
+              {saveStatus === 'saved' && <span style={{ color: ACCENT }}>· ✓ saved</span>}
+              {saveStatus === 'error' && <span style={{ color: '#fb7185' }}>· save failed</span>}
+            </div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 32, lineHeight: 1, color: TEXT, letterSpacing: '0.02em' }}>
+              {tab === 'overview' ? 'OVERVIEW' : tab === 'diet' ? 'DIET' : tab.toUpperCase() + ' DAY'}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => setShowAnalytics(true)} className="rounded-full p-2.5 border" style={{ borderColor: BORDER, background: CARD }}>
+              <BarChart3 size={18} style={{ color: ACCENT }} />
+            </button>
+            <button onClick={() => setShowSettings(true)} className="rounded-full p-2.5 border" style={{ borderColor: BORDER, background: CARD }}>
+              <SettingsIcon size={18} style={{ color: MUTED }} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="px-4">
+        {tab === 'overview' && (
+          <Overview
+            config={config} workouts={workouts} diet={diet} bodyweight={bodyweight}
+            updateBodyweight={updateBodyweight}
+            onOpenAnalytics={() => setShowAnalytics(true)}
+            onJumpToTab={setTab}
+          />
+        )}
+        {(tab === 'push' || tab === 'pull' || tab === 'legs') && (
+          <WorkoutTab
+            category={tab} config={config} workouts={workouts} updateWorkouts={updateWorkouts}
+          />
+        )}
+        {tab === 'diet' && (
+          <DietTab config={config} diet={diet} updateDiet={updateDiet} />
+        )}
+      </div>
+
+      {/* Bottom nav */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 px-3 pb-3 pt-2" style={{ background: `linear-gradient(transparent, ${BG} 30%)` }}>
+        <div className="rounded-2xl border flex items-center justify-around p-1" style={{ background: CARD, borderColor: BORDER, backdropFilter: 'blur(8px)' }}>
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className="flex-1 flex flex-col items-center py-2 rounded-xl transition-all"
+                style={{ background: active ? `${t.color}1a` : 'transparent' }}
+              >
+                <Icon size={20} style={{ color: active ? t.color : MUTED }} />
+                <span className="text-[9px] uppercase tracking-[0.2em] mt-1" style={{ color: active ? t.color : MUTED, fontWeight: 700 }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Settings modal */}
+      {showSettings && (
+        <SettingsModal
+          config={config} updateConfig={updateConfig}
+          workouts={workouts} diet={diet} bodyweight={bodyweight}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Analytics modal */}
+      {showAnalytics && (
+        <AnalyticsModal
+          config={config} workouts={workouts} diet={diet} bodyweight={bodyweight}
+          onClose={() => setShowAnalytics(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============ OVERVIEW ============
+function Overview({ config, workouts, diet, bodyweight, updateBodyweight, onOpenAnalytics, onJumpToTab }) {
+  const today = todayStr();
+
+  // Streak: consecutive days with at least one workout (looking back from today)
+  const streak = useMemo(() => {
+    if (workouts.length === 0) return 0;
+    const dates = new Set(workouts.map((w) => w.date));
+    let count = 0;
+    let cursor = new Date(today + 'T00:00:00');
+    // If didn't work out today, start counting from yesterday
+    const todayHas = dates.has(today);
+    if (!todayHas) cursor.setDate(cursor.getDate() - 1);
+    while (true) {
+      const k = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}-${String(cursor.getDate()).padStart(2, '0')}`;
+      if (dates.has(k)) { count++; cursor.setDate(cursor.getDate() - 1); }
+      else break;
+    }
+    return count;
+  }, [workouts, today]);
+
+  // This week stats
+  const weekStats = useMemo(() => {
+    const weekStart = startOfWeek(today);
+    const inWeek = workouts.filter((w) => new Date(w.date + 'T00:00:00') >= weekStart);
+    const sessions = new Set(inWeek.map((w) => `${w.date}_${w.category}`)).size;
+    const volume = Math.round(inWeek.reduce((a, w) => a + sumVolume(w.sets), 0));
+    const byCat = { push: 0, pull: 0, legs: 0 };
+    inWeek.forEach((w) => { byCat[w.category] = (byCat[w.category] || 0) + 1; });
+    return { sessions, volume, byCat };
+  }, [workouts, today]);
+
+  // Last 7 days diet avg
+  const dietWeek = useMemo(() => {
+    const cutoff = new Date(today + 'T00:00:00');
+    cutoff.setDate(cutoff.getDate() - 6);
+    const recent = diet.filter((d) => new Date(d.date + 'T00:00:00') >= cutoff);
+    if (recent.length === 0) return null;
+    const sum = recent.reduce((a, d) => ({ p: a.p + d.protein, c: a.c + d.carbs, f: a.f + d.fats }), { p: 0, c: 0, f: 0 });
+    return {
+      protein: Math.round(sum.p / recent.length),
+      carbs: Math.round(sum.c / recent.length),
+      fats: Math.round(sum.f / recent.length),
+      cal: calcCal(sum.p / recent.length, sum.c / recent.length, sum.f / recent.length),
+      days: recent.length,
+    };
+  }, [diet, today]);
+
+  // Recent sessions
+  const recentSessions = useMemo(() => {
+    const grouped = {};
+    workouts.forEach((w) => {
+      const k = `${w.date}_${w.category}`;
+      if (!grouped[k]) grouped[k] = { date: w.date, category: w.category, exercises: 0, volume: 0 };
+      grouped[k].exercises += 1;
+      grouped[k].volume += sumVolume(w.sets);
+    });
+    return Object.values(grouped).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+  }, [workouts]);
+
+  // Top lift trend (heaviest single 1RM tracked over time, top 3 lifts by data)
+  const topLiftTrend = useMemo(() => {
+    const byEx = {};
+    workouts.forEach((w) => {
+      const ex = [...config.exercises.push, ...config.exercises.pull, ...config.exercises.legs].find((e) => e.id === w.exerciseId);
+      if (!ex || ex.type !== 'weight') return;
+      if (!byEx[w.exerciseId]) byEx[w.exerciseId] = { name: ex.name, points: [], total: 0 };
+      const best = w.sets.reduce((m, s) => Math.max(m, calc1RM(s.weight, s.reps)), 0);
+      byEx[w.exerciseId].points.push({ date: w.date, val: best });
+      byEx[w.exerciseId].total += sumVolume(w.sets);
+    });
+    const sorted = Object.values(byEx).sort((a, b) => b.total - a.total).slice(0, 3);
+    sorted.forEach((s) => s.points.sort((a, b) => a.date.localeCompare(b.date)));
+    return sorted;
+  }, [workouts, config]);
+
+  // Bodyweight latest
+  const latestBW = bodyweight.length > 0 ? bodyweight.sort((a, b) => b.date.localeCompare(a.date))[0] : null;
+
+  return (
+    <div className="space-y-5">
+      {/* Hero strip */}
+      <div className="rounded-3xl p-5 border" style={{ background: `linear-gradient(135deg, ${CARD} 0%, ${CARD_HI} 100%)`, borderColor: BORDER }}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: MUTED, fontWeight: 700 }}>This Week</div>
+          <Flame size={16} style={{ color: streak > 0 ? ACCENT : MUTED }} />
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1, color: ACCENT }}>{weekStats.sessions}</div>
+            <div className="text-[10px] uppercase tracking-[0.2em] mt-1" style={{ color: MUTED }}>Sessions</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1 }}>{(weekStats.volume / 1000).toFixed(1)}<span style={{ fontSize: 18, color: MUTED }}>k</span></div>
+            <div className="text-[10px] uppercase tracking-[0.2em] mt-1" style={{ color: MUTED }}>Volume {config.units}</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1 }}>{streak}<span style={{ fontSize: 18, color: MUTED }}>d</span></div>
+            <div className="text-[10px] uppercase tracking-[0.2em] mt-1" style={{ color: MUTED }}>Streak</div>
+          </div>
+        </div>
+        {/* Split balance */}
+        <div className="mt-5 flex gap-2">
+          {['push', 'pull', 'legs'].map((c) => (
+            <div key={c} className="flex-1 rounded-lg px-2 py-1.5" style={{ background: BG, border: `1px solid ${BORDER}` }}>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] uppercase tracking-wider font-bold" style={{ color: CAT_COLOR[c] }}>{c}</span>
+                <span style={{ fontFamily: F_MONO, fontSize: 13, color: TEXT }}>{weekStats.byCat[c]}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick log buttons */}
+      <div>
+        <SectionTitle>Quick Log</SectionTitle>
+        <div className="grid grid-cols-3 gap-2">
+          {['push', 'pull', 'legs'].map((c) => (
+            <button
+              key={c}
+              onClick={() => onJumpToTab(c)}
+              className="rounded-2xl py-4 border flex flex-col items-center gap-1 transition-all active:scale-95"
+              style={{ background: CARD, borderColor: BORDER }}
+            >
+              <div className="text-[10px] uppercase tracking-[0.25em] font-bold" style={{ color: CAT_COLOR[c] }}>{c}</div>
+              <ChevronRight size={14} style={{ color: MUTED }} />
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Top lift trends */}
+      {topLiftTrend.length > 0 && topLiftTrend[0].points.length > 1 && (
+        <div>
+          <SectionTitle>Top Lifts — Estimated 1RM</SectionTitle>
+          <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <LineChart data={mergeTrendData(topLiftTrend)}>
+                <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+                <XAxis dataKey="date" tick={{ fill: MUTED, fontSize: 10, fontFamily: F_MONO }} tickFormatter={formatShort} />
+                <YAxis tick={{ fill: MUTED, fontSize: 10, fontFamily: F_MONO }} />
+                <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8, fontFamily: F_BODY, fontSize: 12 }} labelStyle={{ color: TEXT }} />
+                {topLiftTrend.map((t, i) => (
+                  <Line key={t.name} type="monotone" dataKey={t.name} stroke={[ACCENT, CAT_COLOR.push, CAT_COLOR.pull][i]} strokeWidth={2} dot={{ r: 3 }} connectNulls />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {topLiftTrend.map((t, i) => (
+                <div key={t.name} className="text-[10px] uppercase tracking-wider flex items-center gap-1.5" style={{ color: MUTED }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: [ACCENT, CAT_COLOR.push, CAT_COLOR.pull][i] }} />
+                  {t.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Diet snapshot */}
+      <div>
+        <SectionTitle>Diet — 7 Day Avg</SectionTitle>
+        {dietWeek ? (
+          <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+            <div className="grid grid-cols-4 gap-3">
+              <MacroPill label="Cal" value={dietWeek.cal} target={calcCal(config.macroTargets.protein, config.macroTargets.carbs, config.macroTargets.fats)} color={CAT_COLOR.diet} />
+              <MacroPill label="P" value={dietWeek.protein} target={config.macroTargets.protein} color="#fb7185" />
+              <MacroPill label="C" value={dietWeek.carbs} target={config.macroTargets.carbs} color="#60a5fa" />
+              <MacroPill label="F" value={dietWeek.fats} target={config.macroTargets.fats} color="#fbbf24" />
+            </div>
+            <div className="text-[10px] mt-3 uppercase tracking-wider" style={{ color: DIM }}>Based on {dietWeek.days} day{dietWeek.days !== 1 ? 's' : ''} logged</div>
+          </div>
+        ) : (
+          <div className="rounded-2xl p-5 border text-center" style={{ background: CARD, borderColor: BORDER }}>
+            <div className="text-sm" style={{ color: MUTED }}>No diet entries yet — add today's macros from the Diet tab.</div>
+          </div>
+        )}
+      </div>
+
+      {/* Bodyweight */}
+      <div>
+        <SectionTitle>Body Weight</SectionTitle>
+        <BodyweightLogger config={config} bodyweight={bodyweight} updateBodyweight={updateBodyweight} latest={latestBW} />
+      </div>
+
+      {/* Recent sessions */}
+      <div>
+        <SectionTitle>Recent Sessions</SectionTitle>
+        {recentSessions.length === 0 ? (
+          <div className="rounded-2xl p-5 border text-center" style={{ background: CARD, borderColor: BORDER }}>
+            <Dumbbell size={20} className="mx-auto mb-2" style={{ color: MUTED }} />
+            <div className="text-sm" style={{ color: MUTED }}>Hit a workout tab to log your first session.</div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {recentSessions.map((s) => (
+              <div key={`${s.date}_${s.category}`} className="rounded-xl px-4 py-3 border flex items-center justify-between" style={{ background: CARD, borderColor: BORDER }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-10 rounded-full" style={{ background: CAT_COLOR[s.category] }} />
+                  <div>
+                    <div className="text-xs uppercase tracking-wider font-bold" style={{ color: CAT_COLOR[s.category] }}>{s.category}</div>
+                    <div className="text-xs" style={{ color: MUTED }}>{formatLong(s.date)} · {s.exercises} exercise{s.exercises !== 1 ? 's' : ''}</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div style={{ fontFamily: F_MONO, fontSize: 14 }}>{Math.round(s.volume)}</div>
+                  <div className="text-[10px] uppercase" style={{ color: MUTED }}>{config.units}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <button onClick={onOpenAnalytics} className="w-full rounded-2xl py-4 border flex items-center justify-center gap-2 transition-all active:scale-[0.98]" style={{ background: CARD, borderColor: ACCENT, color: ACCENT }}>
+        <BarChart3 size={16} />
+        <span className="text-xs uppercase tracking-[0.25em] font-bold">Open Full Analytics</span>
+      </button>
+    </div>
+  );
+}
+
+const MacroPill = ({ label, value, target, color }) => {
+  const pct = target ? Math.min(100, Math.round((value / target) * 100)) : 0;
+  return (
+    <div className="text-center">
+      <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: MUTED }}>{label}</div>
+      <div style={{ fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1, color }}>{value}</div>
+      <div className="text-[10px] mt-0.5" style={{ color: DIM, fontFamily: F_MONO }}>/ {target}</div>
+      <div className="h-0.5 mt-1.5 rounded-full overflow-hidden" style={{ background: BORDER }}>
+        <div className="h-full" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+};
+
+function BodyweightLogger({ config, bodyweight, updateBodyweight, latest }) {
+  const [val, setVal] = useState('');
+  const [editing, setEditing] = useState(false);
+
+  const recent = useMemo(() =>
+    [...bodyweight].sort((a, b) => a.date.localeCompare(b.date)).slice(-30),
+    [bodyweight]);
+
+  const save = () => {
+    if (!val) return;
+    const today = todayStr();
+    const filtered = bodyweight.filter((b) => b.date !== today);
+    updateBodyweight([...filtered, { id: genId(), date: today, weight: Number(val) }]);
+    setVal('');
+    setEditing(false);
+  };
+
+  const trend = recent.length >= 2 ? (recent[recent.length - 1].weight - recent[0].weight) : null;
+
+  return (
+    <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+      {!editing ? (
+        <div className="flex items-center justify-between">
+          <div>
+            {latest ? (
+              <>
+                <div style={{ fontFamily: F_DISPLAY, fontSize: 32, lineHeight: 1 }}>{latest.weight}<span style={{ fontSize: 14, color: MUTED, fontFamily: F_MONO, marginLeft: 6 }}>{config.units}</span></div>
+                <div className="text-xs mt-1" style={{ color: MUTED }}>{formatLong(latest.date)}{trend !== null && <span style={{ color: trend > 0 ? '#fb7185' : trend < 0 ? '#4ecdc4' : MUTED, marginLeft: 8 }}>{trend > 0 ? '+' : ''}{trend.toFixed(1)} since first log</span>}</div>
+              </>
+            ) : (
+              <div className="text-sm" style={{ color: MUTED }}>No logs yet</div>
+            )}
+          </div>
+          <button onClick={() => setEditing(true)} className="rounded-full p-2.5" style={{ background: ACCENT, color: BG }}>
+            <Plus size={16} />
+          </button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <NumberInput value={val} onChange={setVal} placeholder="Weight" suffix={config.units} step={0.1} />
+          <button onClick={save} className="rounded-xl px-4" style={{ background: ACCENT, color: BG }}><Check size={18} /></button>
+          <button onClick={() => { setEditing(false); setVal(''); }} className="rounded-xl px-3 border" style={{ borderColor: BORDER, color: MUTED }}><X size={18} /></button>
+        </div>
+      )}
+      {recent.length >= 2 && !editing && (
+        <ResponsiveContainer width="100%" height={50} className="mt-3">
+          <AreaChart data={recent.map((r) => ({ date: r.date, weight: r.weight }))}>
+            <defs>
+              <linearGradient id="bwGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={ACCENT} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <Area type="monotone" dataKey="weight" stroke={ACCENT} strokeWidth={2} fill="url(#bwGrad)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+function mergeTrendData(trends) {
+  // Each trend has points: [{date, val}]. Merge by date.
+  const map = new Map();
+  trends.forEach((t) => {
+    t.points.forEach((p) => {
+      if (!map.has(p.date)) map.set(p.date, { date: p.date });
+      map.get(p.date)[t.name] = p.val;
+    });
+  });
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ============ WORKOUT TAB ============
+function WorkoutTab({ category, config, workouts, updateWorkouts }) {
+  const [openExId, setOpenExId] = useState(null);
+  const exercises = config.exercises[category] || [];
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER, borderLeftWidth: 4, borderLeftColor: CAT_COLOR[category] }}>
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: MUTED }}>Today</div>
+        <div className="text-sm mt-1" style={{ color: TEXT }}>Tap any exercise to log sets. Last session shows automatically.</div>
+      </div>
+
+      {exercises.map((ex) => (
+        <ExerciseRow
+          key={ex.id} ex={ex} category={category} workouts={workouts} updateWorkouts={updateWorkouts}
+          config={config} isOpen={openExId === ex.id}
+          onToggle={() => setOpenExId(openExId === ex.id ? null : ex.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ExerciseRow({ ex, category, workouts, updateWorkouts, config, isOpen, onToggle }) {
+  const today = todayStr();
+  const exLogs = useMemo(
+    () => workouts.filter((w) => w.exerciseId === ex.id).sort((a, b) => b.date.localeCompare(a.date)),
+    [workouts, ex.id]
+  );
+  const todayLog = exLogs.find((l) => l.date === today);
+  const lastLog = exLogs.find((l) => l.date !== today);
+
+  const [weight, setWeight] = useState('');
+  const [reps, setReps] = useState('');
+  const [duration, setDuration] = useState('');
+
+  const isTime = ex.type === 'time';
+  const color = CAT_COLOR[category];
+
+  const addSet = () => {
+    let newSet;
+    if (isTime) {
+      if (!duration) return;
+      newSet = { duration: Number(duration), reps: 1 };
+    } else {
+      if (!reps) return;
+      newSet = { weight: Number(weight) || 0, reps: Number(reps) };
+    }
+    if (todayLog) {
+      const updated = workouts.map((w) =>
+        w.id === todayLog.id ? { ...w, sets: [...w.sets, newSet] } : w
+      );
+      updateWorkouts(updated);
+    } else {
+      const newLog = {
+        id: genId(),
+        date: today,
+        category,
+        exerciseId: ex.id,
+        sets: [newSet],
+      };
+      updateWorkouts([...workouts, newLog]);
+    }
+    setWeight(''); setReps(''); setDuration('');
+  };
+
+  const removeSet = (idx) => {
+    if (!todayLog) return;
+    const newSets = todayLog.sets.filter((_, i) => i !== idx);
+    if (newSets.length === 0) {
+      updateWorkouts(workouts.filter((w) => w.id !== todayLog.id));
+    } else {
+      updateWorkouts(workouts.map((w) => w.id === todayLog.id ? { ...w, sets: newSets } : w));
+    }
+  };
+
+  const todayBest = todayLog ? todayLog.sets.reduce((m, s) => isTime ? Math.max(m, s.duration) : Math.max(m, calc1RM(s.weight, s.reps)), 0) : 0;
+  const lastBest = lastLog ? lastLog.sets.reduce((m, s) => isTime ? Math.max(m, s.duration) : Math.max(m, calc1RM(s.weight, s.reps)), 0) : 0;
+  const trend = todayBest && lastBest ? (todayBest > lastBest ? 'up' : todayBest < lastBest ? 'down' : 'eq') : null;
+
+  return (
+    <div className="rounded-2xl border overflow-hidden transition-all" style={{ background: CARD, borderColor: isOpen ? color : BORDER }}>
+      <button onClick={onToggle} className="w-full px-4 py-4 flex items-center justify-between text-left">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span style={{ fontFamily: F_DISPLAY, fontSize: 20, color: TEXT, letterSpacing: '0.02em' }}>{ex.name}</span>
+            {trend === 'up' && <ArrowUp size={14} style={{ color: ACCENT }} />}
+            {trend === 'down' && <ArrowDown size={14} style={{ color: '#fb7185' }} />}
+          </div>
+          {ex.notes && <div className="text-[11px] mt-0.5" style={{ color: DIM }}>{ex.notes}</div>}
+          <div className="text-xs mt-1" style={{ color: MUTED, fontFamily: F_MONO }}>
+            {todayLog ? (
+              <span style={{ color }}>● Today: {todayLog.sets.length} set{todayLog.sets.length !== 1 ? 's' : ''}</span>
+            ) : lastLog ? (
+              <>Last: {summarizeSets(lastLog.sets, isTime, config.units)} <span style={{ color: DIM }}>· {formatShort(lastLog.date)}</span></>
+            ) : (
+              <span style={{ color: DIM }}>No history</span>
+            )}
+          </div>
+        </div>
+        <ChevronRight size={18} style={{ color: MUTED, transform: isOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+      </button>
+
+      {isOpen && (
+        <div className="px-4 pb-4 border-t" style={{ borderColor: BORDER }}>
+          {/* Today's sets */}
+          {todayLog && todayLog.sets.length > 0 && (
+            <div className="mt-4">
+              <div className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color, fontWeight: 700 }}>Today</div>
+              <div className="space-y-1.5">
+                {todayLog.sets.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg px-3 py-2" style={{ background: BG }}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-[10px]" style={{ color: MUTED, fontFamily: F_MONO }}>SET {i + 1}</span>
+                      <span style={{ fontFamily: F_MONO, fontSize: 14 }}>
+                        {isTime ? `${s.duration}s` : `${s.weight}${config.units} × ${s.reps}`}
+                      </span>
+                    </div>
+                    <button onClick={() => removeSet(i)} style={{ color: MUTED }}><Trash2 size={14} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Add set */}
+          <div className="mt-4">
+            <div className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: MUTED, fontWeight: 700 }}>Add Set</div>
+            <div className="flex gap-2">
+              {isTime ? (
+                <>
+                  <NumberInput value={duration} onChange={setDuration} placeholder="Duration" suffix="sec" />
+                </>
+              ) : (
+                <>
+                  <NumberInput value={weight} onChange={setWeight} placeholder="Weight" suffix={config.units} step={0.5} />
+                  <NumberInput value={reps} onChange={setReps} placeholder="Reps" />
+                </>
+              )}
+              <button onClick={addSet} className="rounded-xl px-4 transition-all active:scale-95" style={{ background: color, color: BG }}>
+                <Plus size={20} />
+              </button>
+            </div>
+          </div>
+
+          {/* Last session reference */}
+          {lastLog && (
+            <div className="mt-4 rounded-xl p-3" style={{ background: BG }}>
+              <div className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: MUTED, fontWeight: 700 }}>Last Session · {formatShort(lastLog.date)}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {lastLog.sets.map((s, i) => (
+                  <span key={i} className="rounded px-2 py-1 text-xs" style={{ background: CARD_HI, fontFamily: F_MONO, color: TEXT }}>
+                    {isTime ? `${s.duration}s` : `${s.weight}×${s.reps}`}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* History */}
+          {exLogs.filter((l) => l.date !== today).length > 0 && (
+            <details className="mt-4">
+              <summary className="text-[10px] uppercase tracking-[0.25em] cursor-pointer" style={{ color: MUTED, fontWeight: 700 }}>
+                Full history ({exLogs.filter((l) => l.date !== today).length})
+              </summary>
+              <div className="mt-2 space-y-1.5 max-h-60 overflow-y-auto">
+                {exLogs.filter((l) => l.date !== today).map((log) => (
+                  <div key={log.id} className="text-xs flex items-center justify-between rounded-lg px-3 py-2" style={{ background: BG, fontFamily: F_MONO }}>
+                    <span style={{ color: MUTED }}>{formatShort(log.date)}</span>
+                    <span style={{ color: TEXT }}>{summarizeSets(log.sets, isTime, config.units)}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function summarizeSets(sets, isTime, units) {
+  if (isTime) return sets.map((s) => `${s.duration}s`).join(', ');
+  // Group by weight
+  return sets.map((s) => `${s.weight}×${s.reps}`).join(', ');
+}
+
+// ============ DIET TAB ============
+function DietTab({ config, diet, updateDiet }) {
+  const today = todayStr();
+  const todayEntry = diet.find((d) => d.date === today);
+  const [p, setP] = useState(todayEntry?.protein ?? '');
+  const [c, setC] = useState(todayEntry?.carbs ?? '');
+  const [f, setF] = useState(todayEntry?.fats ?? '');
+  const [justSaved, setJustSaved] = useState(false);
+  const dirtyRef = useRef(false);
+
+  useEffect(() => {
+    setP(todayEntry?.protein ?? '');
+    setC(todayEntry?.carbs ?? '');
+    setF(todayEntry?.fats ?? '');
+    dirtyRef.current = false;
+  }, [todayEntry?.id]);
+
+  // Auto-save with debounce — fires 600ms after user stops typing
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    const t = setTimeout(() => {
+      const filtered = diet.filter((d) => d.date !== today);
+      updateDiet([...filtered, {
+        id: todayEntry?.id || genId(),
+        date: today,
+        protein: Number(p) || 0,
+        carbs: Number(c) || 0,
+        fats: Number(f) || 0,
+      }]);
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 1800);
+    }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p, c, f]);
+
+  const handleP = (v) => { dirtyRef.current = true; setP(v); };
+  const handleC = (v) => { dirtyRef.current = true; setC(v); };
+  const handleF = (v) => { dirtyRef.current = true; setF(v); };
+
+  const targets = config.macroTargets;
+  const calTarget = calcCal(targets.protein, targets.carbs, targets.fats);
+  const calToday = calcCal(p, c, f);
+
+  // Recent history
+  const history = useMemo(() =>
+    [...diet].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 14),
+    [diet]);
+
+  // Trend (last 14 days)
+  const trendData = useMemo(() => {
+    const data = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today + 'T00:00:00');
+      d.setDate(d.getDate() - i);
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const e = diet.find((x) => x.date === ds);
+      data.push({
+        date: ds,
+        cal: e ? calcCal(e.protein, e.carbs, e.fats) : null,
+        protein: e?.protein ?? null,
+      });
+    }
+    return data;
+  }, [diet, today]);
+
+  return (
+    <div className="space-y-5">
+      {/* Today's logger */}
+      <div className="rounded-3xl p-5 border" style={{ background: CARD, borderColor: BORDER, borderLeftWidth: 4, borderLeftColor: CAT_COLOR.diet }}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: MUTED, fontWeight: 700 }}>Today</div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 28, lineHeight: 1, marginTop: 4 }}>
+              {calToday}<span style={{ fontSize: 14, color: MUTED, marginLeft: 6 }}>/ {calTarget} kcal</span>
+            </div>
+          </div>
+          {todayEntry && <Check size={20} style={{ color: ACCENT }} />}
+        </div>
+
+        {/* Calorie bar */}
+        <div className="rounded-full h-2 mb-5 overflow-hidden" style={{ background: BG }}>
+          <div className="h-full transition-all" style={{ width: `${Math.min(100, (calToday / calTarget) * 100)}%`, background: CAT_COLOR.diet }} />
+        </div>
+
+        {/* Macro inputs */}
+        <div className="space-y-3">
+          <MacroRow label="Protein" value={p} onChange={handleP} target={targets.protein} color="#fb7185" unit="g" />
+          <MacroRow label="Carbs" value={c} onChange={handleC} target={targets.carbs} color="#60a5fa" unit="g" />
+          <MacroRow label="Fats" value={f} onChange={handleF} target={targets.fats} color="#fbbf24" unit="g" />
+        </div>
+
+        <div className="w-full mt-5 rounded-xl py-3 flex items-center justify-center gap-2 transition-all" style={{ background: justSaved ? ACCENT : CARD_HI, color: justSaved ? BG : MUTED }}>
+          {justSaved ? <Check size={14} /> : <div className="w-1.5 h-1.5 rounded-full" style={{ background: MUTED }} />}
+          <span className="text-[10px] uppercase tracking-[0.25em]" style={{ fontWeight: 700 }}>
+            {justSaved ? 'Saved' : todayEntry ? 'Auto-saving as you type' : 'Type to start logging'}
+          </span>
+        </div>
+      </div>
+
+      {/* Trend */}
+      {trendData.some((d) => d.cal !== null) && (
+        <div>
+          <SectionTitle accent={CAT_COLOR.diet}>14-Day Calorie Trend</SectionTitle>
+          <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+            <ResponsiveContainer width="100%" height={140}>
+              <AreaChart data={trendData}>
+                <defs>
+                  <linearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={CAT_COLOR.diet} stopOpacity={0.4} />
+                    <stop offset="100%" stopColor={CAT_COLOR.diet} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+                <XAxis dataKey="date" tick={{ fill: MUTED, fontSize: 10, fontFamily: F_MONO }} tickFormatter={formatShort} />
+                <YAxis tick={{ fill: MUTED, fontSize: 10, fontFamily: F_MONO }} />
+                <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8, fontSize: 12 }} />
+                <ReferenceLine y={calTarget} stroke={ACCENT} strokeDasharray="4 4" />
+                <Area type="monotone" dataKey="cal" stroke={CAT_COLOR.diet} strokeWidth={2} fill="url(#calGrad)" connectNulls />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
+      {/* History */}
+      {history.length > 0 && (
+        <div>
+          <SectionTitle accent={CAT_COLOR.diet}>Recent Days</SectionTitle>
+          <div className="space-y-2">
+            {history.map((d) => {
+              const cal = calcCal(d.protein, d.carbs, d.fats);
+              const pct = Math.min(100, Math.round((cal / calTarget) * 100));
+              return (
+                <div key={d.id} className="rounded-xl p-3 border" style={{ background: CARD, borderColor: BORDER }}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs uppercase tracking-wider" style={{ color: MUTED, fontWeight: 700 }}>{formatLong(d.date)}</span>
+                    <span style={{ fontFamily: F_MONO, fontSize: 13 }}>{cal} kcal</span>
+                  </div>
+                  <div className="flex gap-1 text-[10px]" style={{ fontFamily: F_MONO, color: MUTED }}>
+                    <span style={{ color: '#fb7185' }}>P {d.protein}g</span>
+                    <span>·</span>
+                    <span style={{ color: '#60a5fa' }}>C {d.carbs}g</span>
+                    <span>·</span>
+                    <span style={{ color: '#fbbf24' }}>F {d.fats}g</span>
+                    <span style={{ marginLeft: 'auto', color: pct >= 90 && pct <= 110 ? ACCENT : MUTED }}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const MacroRow = ({ label, value, onChange, target, color, unit }) => {
+  const pct = target ? Math.min(100, ((Number(value) || 0) / target) * 100) : 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] uppercase tracking-[0.2em]" style={{ color, fontWeight: 700 }}>{label}</span>
+        <span className="text-[11px]" style={{ color: MUTED, fontFamily: F_MONO }}>target {target}{unit}</span>
+      </div>
+      <div className="flex gap-2 items-center">
+        <NumberInput value={value} onChange={onChange} placeholder="0" suffix={unit} />
+      </div>
+      <div className="h-1 mt-1.5 rounded-full overflow-hidden" style={{ background: BORDER }}>
+        <div className="h-full transition-all" style={{ width: `${pct}%`, background: color }} />
+      </div>
+    </div>
+  );
+};
+
+// ============ ANALYTICS MODAL ============
+function AnalyticsModal({ config, workouts, diet, bodyweight, onClose }) {
+  const [section, setSection] = useState('overview');
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: BG }}>
+      <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b" style={{ borderColor: BORDER }}>
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: MUTED }}>Deep Dive</div>
+          <div style={{ fontFamily: F_DISPLAY, fontSize: 28, lineHeight: 1 }}>ANALYTICS</div>
+        </div>
+        <button onClick={onClose} className="rounded-full p-2 border" style={{ borderColor: BORDER }}>
+          <X size={18} style={{ color: TEXT }} />
+        </button>
+      </div>
+
+      <div className="px-4 pt-3 flex gap-2 overflow-x-auto pb-2 border-b" style={{ borderColor: BORDER }}>
+        {[
+          { id: 'overview', label: 'Summary' },
+          { id: 'lifts', label: '1RM' },
+          { id: 'volume', label: 'Volume' },
+          { id: 'frequency', label: 'Frequency' },
+          { id: 'insights', label: 'Insights' },
+          { id: 'diet', label: 'Diet' },
+        ].map((s) => (
+          <Pill key={s.id} active={section === s.id} color={ACCENT} onClick={() => setSection(s.id)}>{s.label}</Pill>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 pb-12 space-y-4">
+        {section === 'overview' && <AnalyticsSummary config={config} workouts={workouts} />}
+        {section === 'lifts' && <AnalyticsLifts config={config} workouts={workouts} />}
+        {section === 'volume' && <AnalyticsVolume config={config} workouts={workouts} />}
+        {section === 'frequency' && <AnalyticsFrequency workouts={workouts} />}
+        {section === 'insights' && <AnalyticsInsights config={config} workouts={workouts} />}
+        {section === 'diet' && <AnalyticsDiet config={config} diet={diet} bodyweight={bodyweight} />}
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsSummary({ config, workouts }) {
+  const stats = useMemo(() => {
+    const allEx = [...config.exercises.push, ...config.exercises.pull, ...config.exercises.legs];
+    const totalSessions = new Set(workouts.map((w) => `${w.date}_${w.category}`)).size;
+    const totalVolume = Math.round(workouts.reduce((a, w) => a + sumVolume(w.sets), 0));
+    const totalSets = workouts.reduce((a, w) => a + w.sets.length, 0);
+    const totalReps = workouts.reduce((a, w) => a + w.sets.reduce((b, s) => b + (s.reps || 0), 0), 0);
+    const distinctDays = new Set(workouts.map((w) => w.date)).size;
+
+    // Top exercise by volume
+    const exVol = {};
+    workouts.forEach((w) => {
+      exVol[w.exerciseId] = (exVol[w.exerciseId] || 0) + sumVolume(w.sets);
+    });
+    const topExId = Object.entries(exVol).sort((a, b) => b[1] - a[1])[0]?.[0];
+    const topEx = allEx.find((e) => e.id === topExId);
+
+    // PRs (best 1RM per exercise)
+    const prs = {};
+    workouts.forEach((w) => {
+      const ex = allEx.find((e) => e.id === w.exerciseId);
+      if (!ex || ex.type !== 'weight') return;
+      w.sets.forEach((s) => {
+        const oneRm = calc1RM(s.weight, s.reps);
+        if (!prs[w.exerciseId] || oneRm > prs[w.exerciseId].val) {
+          prs[w.exerciseId] = { name: ex.name, val: oneRm, date: w.date, weight: s.weight, reps: s.reps };
+        }
+      });
+    });
+
+    return { totalSessions, totalVolume, totalSets, totalReps, distinctDays, topEx, prs };
+  }, [workouts, config]);
+
+  if (workouts.length === 0) {
+    return <EmptyState icon={BarChart3} text="Log a few workouts and your stats will appear here." />;
+  }
+
+  const prList = Object.values(stats.prs).sort((a, b) => b.val - a.val).slice(0, 8);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Sessions" value={stats.totalSessions} />
+        <StatCard label="Workout Days" value={stats.distinctDays} />
+        <StatCard label="Total Volume" value={(stats.totalVolume / 1000).toFixed(1) + 'k'} unit={config.units} />
+        <StatCard label="Total Sets" value={stats.totalSets} sub={`${stats.totalReps} reps`} />
+      </div>
+
+      {stats.topEx && (
+        <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+          <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: MUTED, fontWeight: 700 }}>Most Volume Lifted</div>
+          <div className="flex items-center justify-between mt-2">
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 24 }}>{stats.topEx.name}</div>
+            <Award size={20} style={{ color: ACCENT }} />
+          </div>
+        </div>
+      )}
+
+      <div>
+        <SectionTitle>Personal Records · Est. 1RM</SectionTitle>
+        <div className="space-y-2">
+          {prList.map((pr) => (
+            <div key={pr.name} className="rounded-xl px-4 py-3 border flex items-center justify-between" style={{ background: CARD, borderColor: BORDER }}>
+              <div>
+                <div className="text-sm" style={{ color: TEXT }}>{pr.name}</div>
+                <div className="text-[11px] mt-0.5" style={{ color: MUTED, fontFamily: F_MONO }}>{pr.weight}{config.units} × {pr.reps} · {formatShort(pr.date)}</div>
+              </div>
+              <div className="text-right">
+                <div style={{ fontFamily: F_DISPLAY, fontSize: 24, color: ACCENT }}>{pr.val}</div>
+                <div className="text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>{config.units}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsLifts({ config, workouts }) {
+  const allEx = [...config.exercises.push, ...config.exercises.pull, ...config.exercises.legs].filter((e) => e.type === 'weight');
+  const exWithData = allEx.filter((e) => workouts.some((w) => w.exerciseId === e.id));
+  const [selectedId, setSelectedId] = useState(exWithData[0]?.id);
+
+  const data = useMemo(() => {
+    if (!selectedId) return [];
+    return workouts
+      .filter((w) => w.exerciseId === selectedId)
+      .map((w) => {
+        const best1rm = w.sets.reduce((m, s) => Math.max(m, calc1RM(s.weight, s.reps)), 0);
+        const heaviest = w.sets.reduce((m, s) => Math.max(m, s.weight || 0), 0);
+        const volume = sumVolume(w.sets);
+        return { date: w.date, oneRm: best1rm, heaviest, volume };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [workouts, selectedId]);
+
+  if (exWithData.length === 0) {
+    return <EmptyState icon={TrendingUp} text="No lift data yet. Log some weighted sets to see 1RM trends." />;
+  }
+
+  const peak = data.reduce((m, d) => Math.max(m, d.oneRm), 0);
+  const current = data[data.length - 1]?.oneRm || 0;
+  const start = data[0]?.oneRm || 0;
+  const gain = current - start;
+  const gainPct = start > 0 ? Math.round((gain / start) * 100) : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {exWithData.map((e) => (
+          <Pill key={e.id} active={selectedId === e.id} color={ACCENT} onClick={() => setSelectedId(e.id)}>{e.name}</Pill>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard label="Current" value={current} unit={config.units} />
+        <StatCard label="Peak" value={peak} unit={config.units} />
+        <StatCard label="Gain" value={(gain >= 0 ? '+' : '') + gain.toFixed(1)} sub={`${gainPct >= 0 ? '+' : ''}${gainPct}%`} accent={gain >= 0 ? ACCENT : '#fb7185'} />
+      </div>
+
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: MUTED, fontWeight: 700 }}>Estimated 1RM (Epley)</div>
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={data}>
+            <defs>
+              <linearGradient id="oneRmGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={ACCENT} stopOpacity={0.4} />
+                <stop offset="100%" stopColor={ACCENT} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+            <XAxis dataKey="date" tick={{ fill: MUTED, fontSize: 10 }} tickFormatter={formatShort} />
+            <YAxis tick={{ fill: MUTED, fontSize: 10 }} />
+            <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8 }} />
+            <Line type="monotone" dataKey="oneRm" stroke={ACCENT} strokeWidth={2.5} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="heaviest" stroke={MUTED} strokeWidth={1} strokeDasharray="3 3" dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+        <div className="text-[10px] uppercase tracking-wider mt-2" style={{ color: DIM }}>Solid: est. 1RM · Dashed: heaviest set</div>
+      </div>
+
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: MUTED, fontWeight: 700 }}>Volume per Session</div>
+        <ResponsiveContainer width="100%" height={140}>
+          <BarChart data={data}>
+            <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+            <XAxis dataKey="date" tick={{ fill: MUTED, fontSize: 10 }} tickFormatter={formatShort} />
+            <YAxis tick={{ fill: MUTED, fontSize: 10 }} />
+            <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8 }} />
+            <Bar dataKey="volume" fill={ACCENT} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsVolume({ config, workouts }) {
+  // Weekly volume by category, last 8 weeks
+  const data = useMemo(() => {
+    const today = todayStr();
+    const weeks = [];
+    for (let i = 7; i >= 0; i--) {
+      const ws = startOfWeek(today);
+      ws.setDate(ws.getDate() - i * 7);
+      const we = new Date(ws);
+      we.setDate(we.getDate() + 7);
+      const inWeek = workouts.filter((w) => {
+        const d = new Date(w.date + 'T00:00:00');
+        return d >= ws && d < we;
+      });
+      const byCat = { push: 0, pull: 0, legs: 0 };
+      inWeek.forEach((w) => {
+        byCat[w.category] = (byCat[w.category] || 0) + sumVolume(w.sets);
+      });
+      weeks.push({
+        label: weekLabel(ws),
+        push: Math.round(byCat.push),
+        pull: Math.round(byCat.pull),
+        legs: Math.round(byCat.legs),
+        total: Math.round(byCat.push + byCat.pull + byCat.legs),
+      });
+    }
+    return weeks;
+  }, [workouts]);
+
+  if (workouts.length === 0) {
+    return <EmptyState icon={Activity} text="Log workouts to see volume distribution." />;
+  }
+
+  const totals = { push: 0, pull: 0, legs: 0 };
+  workouts.forEach((w) => { totals[w.category] += sumVolume(w.sets); });
+  const grandTotal = totals.push + totals.pull + totals.legs;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.25em] mb-3" style={{ color: MUTED, fontWeight: 700 }}>Weekly Volume by Split</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={data}>
+            <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+            <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 10 }} />
+            <YAxis tick={{ fill: MUTED, fontSize: 10 }} />
+            <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8 }} />
+            <Bar dataKey="push" stackId="a" fill={CAT_COLOR.push} />
+            <Bar dataKey="pull" stackId="a" fill={CAT_COLOR.pull} />
+            <Bar dataKey="legs" stackId="a" fill={CAT_COLOR.legs} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="flex justify-center gap-4 mt-2">
+          {['push', 'pull', 'legs'].map((c) => (
+            <div key={c} className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>
+              <span className="w-2 h-2 rounded-full" style={{ background: CAT_COLOR[c] }} />
+              {c}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <SectionTitle>All-Time Distribution</SectionTitle>
+        <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+          {['push', 'pull', 'legs'].map((c) => {
+            const pct = grandTotal ? Math.round((totals[c] / grandTotal) * 100) : 0;
+            return (
+              <div key={c} className="mb-3 last:mb-0">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] uppercase tracking-wider font-bold" style={{ color: CAT_COLOR[c] }}>{c}</span>
+                  <span className="text-xs" style={{ color: MUTED, fontFamily: F_MONO }}>{Math.round(totals[c]).toLocaleString()} {config.units} · {pct}%</span>
+                </div>
+                <div className="h-2 rounded-full overflow-hidden" style={{ background: BG }}>
+                  <div className="h-full" style={{ width: `${pct}%`, background: CAT_COLOR[c] }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsFrequency({ workouts }) {
+  // Sessions per week, last 12 weeks
+  const data = useMemo(() => {
+    const today = todayStr();
+    const weeks = [];
+    for (let i = 11; i >= 0; i--) {
+      const ws = startOfWeek(today);
+      ws.setDate(ws.getDate() - i * 7);
+      const we = new Date(ws);
+      we.setDate(we.getDate() + 7);
+      const sessSet = new Set();
+      workouts.forEach((w) => {
+        const d = new Date(w.date + 'T00:00:00');
+        if (d >= ws && d < we) sessSet.add(`${w.date}_${w.category}`);
+      });
+      weeks.push({ label: weekLabel(ws), sessions: sessSet.size });
+    }
+    return weeks;
+  }, [workouts]);
+
+  // Days since last session per category
+  const lastByCategory = useMemo(() => {
+    const result = {};
+    ['push', 'pull', 'legs'].forEach((c) => {
+      const last = workouts.filter((w) => w.category === c).sort((a, b) => b.date.localeCompare(a.date))[0];
+      result[c] = last ? daysBetween(last.date, todayStr()) : null;
+    });
+    return result;
+  }, [workouts]);
+
+  // Days trained heatmap (last 12 weeks = 84 days)
+  const heatmap = useMemo(() => {
+    const days = [];
+    const today = todayStr();
+    const dateSet = new Map();
+    workouts.forEach((w) => {
+      const cur = dateSet.get(w.date) || new Set();
+      cur.add(w.category);
+      dateSet.set(w.date, cur);
+    });
+    for (let i = 83; i >= 0; i--) {
+      const d = new Date(today + 'T00:00:00');
+      d.setDate(d.getDate() - i);
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const cats = dateSet.get(ds);
+      days.push({ date: ds, count: cats ? cats.size : 0, cats: cats ? [...cats] : [] });
+    }
+    return days;
+  }, [workouts]);
+
+  if (workouts.length === 0) {
+    return <EmptyState icon={Calendar} text="Frequency data appears once you start logging." />;
+  }
+
+  const avgSessions = (data.reduce((a, d) => a + d.sessions, 0) / data.length).toFixed(1);
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-2">
+        {['push', 'pull', 'legs'].map((c) => (
+          <div key={c} className="rounded-2xl p-3 border" style={{ background: CARD, borderColor: BORDER }}>
+            <div className="text-[10px] uppercase tracking-wider mb-1" style={{ color: CAT_COLOR[c], fontWeight: 700 }}>{c}</div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 28, lineHeight: 1, color: lastByCategory[c] === null ? MUTED : lastByCategory[c] > 7 ? '#fb7185' : TEXT }}>
+              {lastByCategory[c] === null ? '—' : lastByCategory[c]}
+              <span style={{ fontSize: 12, color: MUTED, marginLeft: 4 }}>{lastByCategory[c] !== null ? 'd ago' : ''}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-[10px] uppercase tracking-[0.25em]" style={{ color: MUTED, fontWeight: 700 }}>Sessions / Week</div>
+          <div className="text-xs" style={{ color: ACCENT, fontFamily: F_MONO }}>avg {avgSessions}</div>
+        </div>
+        <ResponsiveContainer width="100%" height={140}>
+          <BarChart data={data}>
+            <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+            <XAxis dataKey="label" tick={{ fill: MUTED, fontSize: 9 }} />
+            <YAxis tick={{ fill: MUTED, fontSize: 10 }} allowDecimals={false} />
+            <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8 }} />
+            <Bar dataKey="sessions" fill={ACCENT} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.25em] mb-3" style={{ color: MUTED, fontWeight: 700 }}>Activity · Last 12 Weeks</div>
+        <div className="grid grid-cols-7 gap-1">
+          {heatmap.map((d) => {
+            const intensity = d.count;
+            const bg = intensity === 0 ? CARD_HI : intensity === 1 ? '#3a4a1a' : intensity === 2 ? '#7a9a25' : ACCENT;
+            return (
+              <div key={d.date} className="aspect-square rounded-sm" style={{ background: bg }} title={`${d.date}: ${d.count} session${d.count !== 1 ? 's' : ''}`} />
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-2 mt-3 text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>
+          <span>Less</span>
+          {[CARD_HI, '#3a4a1a', '#7a9a25', ACCENT].map((c, i) => (
+            <span key={i} className="w-3 h-3 rounded-sm" style={{ background: c }} />
+          ))}
+          <span>More</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsInsights({ config, workouts }) {
+  const allEx = [...config.exercises.push, ...config.exercises.pull, ...config.exercises.legs];
+
+  const insights = useMemo(() => {
+    const out = [];
+    if (workouts.length === 0) return out;
+
+    // Stalled lifts: 3+ sessions, no 1RM gain in last 3 sessions
+    allEx.filter((e) => e.type === 'weight').forEach((ex) => {
+      const logs = workouts.filter((w) => w.exerciseId === ex.id).sort((a, b) => a.date.localeCompare(b.date));
+      if (logs.length < 4) return;
+      const recent = logs.slice(-3);
+      const prior = logs.slice(0, -3);
+      const recentBest = Math.max(...recent.flatMap((l) => l.sets.map((s) => calc1RM(s.weight, s.reps))));
+      const priorBest = Math.max(...prior.flatMap((l) => l.sets.map((s) => calc1RM(s.weight, s.reps))));
+      if (recentBest <= priorBest && priorBest > 0) {
+        out.push({ type: 'stalled', icon: AlertCircle, color: '#fb7185', text: `${ex.name} stalled — last 3 sessions haven't beaten est. 1RM of ${priorBest}${config.units}.` });
+      }
+    });
+
+    // Progressing lifts
+    allEx.filter((e) => e.type === 'weight').forEach((ex) => {
+      const logs = workouts.filter((w) => w.exerciseId === ex.id).sort((a, b) => a.date.localeCompare(b.date));
+      if (logs.length < 3) return;
+      const first = Math.max(...logs[0].sets.map((s) => calc1RM(s.weight, s.reps)));
+      const last = Math.max(...logs[logs.length - 1].sets.map((s) => calc1RM(s.weight, s.reps)));
+      if (first > 0 && last > first * 1.1) {
+        const pct = Math.round(((last - first) / first) * 100);
+        out.push({ type: 'progress', icon: TrendingUp, color: ACCENT, text: `${ex.name} up ${pct}% since you started — keep pushing.` });
+      }
+    });
+
+    // Imbalance check
+    const cats = { push: 0, pull: 0, legs: 0 };
+    workouts.forEach((w) => { cats[w.category] += sumVolume(w.sets); });
+    const total = cats.push + cats.pull + cats.legs;
+    if (total > 0) {
+      const ratios = { push: cats.push / total, pull: cats.pull / total, legs: cats.legs / total };
+      Object.entries(ratios).forEach(([c, r]) => {
+        if (r < 0.18) {
+          out.push({ type: 'imbalance', icon: AlertCircle, color: '#fbbf24', text: `${c.toUpperCase()} only ${Math.round(r * 100)}% of total volume — consider adding a session.` });
+        }
+      });
+    }
+
+    // Time since last session
+    ['push', 'pull', 'legs'].forEach((c) => {
+      const last = workouts.filter((w) => w.category === c).sort((a, b) => b.date.localeCompare(a.date))[0];
+      if (last && daysBetween(last.date, todayStr()) > 7) {
+        out.push({ type: 'gap', icon: Clock, color: '#fb7185', text: `${daysBetween(last.date, todayStr())} days since last ${c} day.` });
+      }
+    });
+
+    if (out.length === 0) {
+      out.push({ type: 'good', icon: Check, color: ACCENT, text: 'Everything looks solid. Keep at it.' });
+    }
+    return out;
+  }, [workouts, allEx, config.units]);
+
+  return (
+    <div className="space-y-3">
+      <SectionTitle>Smart Insights</SectionTitle>
+      {insights.map((ins, i) => {
+        const Icon = ins.icon;
+        return (
+          <div key={i} className="rounded-2xl p-4 border flex gap-3" style={{ background: CARD, borderColor: BORDER, borderLeftWidth: 3, borderLeftColor: ins.color }}>
+            <Icon size={18} style={{ color: ins.color, flexShrink: 0, marginTop: 2 }} />
+            <div className="text-sm" style={{ color: TEXT }}>{ins.text}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function AnalyticsDiet({ config, diet, bodyweight }) {
+  const stats = useMemo(() => {
+    if (diet.length === 0) return null;
+    const sum = diet.reduce((a, d) => ({ p: a.p + d.protein, c: a.c + d.carbs, f: a.f + d.fats, days: a.days + 1 }), { p: 0, c: 0, f: 0, days: 0 });
+    const avg = { p: sum.p / sum.days, c: sum.c / sum.days, f: sum.f / sum.days };
+    const targets = config.macroTargets;
+    const consistency = (1 - Math.min(1, (Math.abs(avg.p - targets.protein) / targets.protein + Math.abs(avg.c - targets.carbs) / targets.carbs + Math.abs(avg.f - targets.fats) / targets.fats) / 3)) * 100;
+    const calAvg = calcCal(avg.p, avg.c, avg.f);
+    return { avg, consistency: Math.round(consistency), calAvg, days: sum.days };
+  }, [diet, config]);
+
+  // Calorie + bodyweight overlay
+  const overlay = useMemo(() => {
+    const today = todayStr();
+    const out = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today + 'T00:00:00');
+      d.setDate(d.getDate() - i);
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const e = diet.find((x) => x.date === ds);
+      const bw = bodyweight.find((x) => x.date === ds);
+      out.push({ date: ds, cal: e ? calcCal(e.protein, e.carbs, e.fats) : null, bw: bw?.weight ?? null });
+    }
+    return out;
+  }, [diet, bodyweight]);
+
+  if (!stats) {
+    return <EmptyState icon={Apple} text="Log a few days of meals to see diet analytics." />;
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Days Logged" value={stats.days} />
+        <StatCard label="Consistency" value={stats.consistency + '%'} accent={stats.consistency >= 75 ? ACCENT : '#fbbf24'} />
+        <StatCard label="Avg Calories" value={stats.calAvg} unit="kcal" />
+        <StatCard label="Avg Protein" value={Math.round(stats.avg.p)} unit="g" accent="#fb7185" />
+      </div>
+
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.25em] mb-3" style={{ color: MUTED, fontWeight: 700 }}>Avg vs Target</div>
+        {[
+          { l: 'Protein', v: stats.avg.p, t: config.macroTargets.protein, c: '#fb7185' },
+          { l: 'Carbs', v: stats.avg.c, t: config.macroTargets.carbs, c: '#60a5fa' },
+          { l: 'Fats', v: stats.avg.f, t: config.macroTargets.fats, c: '#fbbf24' },
+        ].map((m) => {
+          const pct = Math.min(150, (m.v / m.t) * 100);
+          return (
+            <div key={m.l} className="mb-3 last:mb-0">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[11px] uppercase tracking-wider font-bold" style={{ color: m.c }}>{m.l}</span>
+                <span className="text-xs" style={{ color: MUTED, fontFamily: F_MONO }}>{Math.round(m.v)}g / {m.t}g</span>
+              </div>
+              <div className="h-2 rounded-full overflow-hidden relative" style={{ background: BG }}>
+                <div className="h-full transition-all" style={{ width: `${Math.min(100, pct)}%`, background: m.c }} />
+                <div className="absolute top-0 bottom-0 w-px" style={{ left: '100%', background: TEXT, opacity: 0.3 }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {overlay.some((d) => d.cal !== null) && (
+        <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+          <div className="text-[10px] uppercase tracking-[0.25em] mb-2" style={{ color: MUTED, fontWeight: 700 }}>30-Day Calories + Bodyweight</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={overlay}>
+              <CartesianGrid stroke={BORDER} strokeDasharray="2 4" />
+              <XAxis dataKey="date" tick={{ fill: MUTED, fontSize: 10 }} tickFormatter={formatShort} />
+              <YAxis yAxisId="left" tick={{ fill: MUTED, fontSize: 10 }} />
+              <YAxis yAxisId="right" orientation="right" tick={{ fill: MUTED, fontSize: 10 }} domain={['dataMin - 2', 'dataMax + 2']} />
+              <Tooltip contentStyle={{ background: CARD_HI, border: `1px solid ${BORDER}`, borderRadius: 8 }} />
+              <Line yAxisId="left" type="monotone" dataKey="cal" stroke={CAT_COLOR.diet} strokeWidth={2} dot={false} connectNulls />
+              <Line yAxisId="right" type="monotone" dataKey="bw" stroke={ACCENT} strokeWidth={2} dot={{ r: 2 }} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+          <div className="flex gap-3 mt-2 text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: CAT_COLOR.diet }} />Calories</span>
+            <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: ACCENT }} />Bodyweight</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const EmptyState = ({ icon: Icon, text }) => (
+  <div className="rounded-2xl p-8 border text-center" style={{ background: CARD, borderColor: BORDER }}>
+    <Icon size={28} className="mx-auto mb-3" style={{ color: MUTED }} />
+    <div className="text-sm" style={{ color: MUTED }}>{text}</div>
+  </div>
+);
+
+// ============ SETTINGS MODAL ============
+function SettingsModal({ config, updateConfig, workouts, diet, bodyweight, onClose }) {
+  const [section, setSection] = useState('targets');
+
+  const exportData = () => {
+    const data = { config, workouts, diet, bodyweight, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gym-tracker-${todayStr()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col" style={{ background: BG }}>
+      <div className="px-4 pt-4 pb-3 flex items-center justify-between border-b" style={{ borderColor: BORDER }}>
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: MUTED }}>Configure</div>
+          <div style={{ fontFamily: F_DISPLAY, fontSize: 28, lineHeight: 1 }}>SETTINGS</div>
+        </div>
+        <button onClick={onClose} className="rounded-full p-2 border" style={{ borderColor: BORDER }}>
+          <X size={18} style={{ color: TEXT }} />
+        </button>
+      </div>
+
+      <div className="px-4 pt-3 flex gap-2 overflow-x-auto pb-2 border-b" style={{ borderColor: BORDER }}>
+        {[
+          { id: 'targets', label: 'Macros' },
+          { id: 'units', label: 'Units' },
+          { id: 'push', label: 'Push' },
+          { id: 'pull', label: 'Pull' },
+          { id: 'legs', label: 'Legs' },
+          { id: 'data', label: 'Data' },
+        ].map((s) => (
+          <Pill key={s.id} active={section === s.id} color={ACCENT} onClick={() => setSection(s.id)}>{s.label}</Pill>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-12">
+        {section === 'targets' && <MacroTargets config={config} updateConfig={updateConfig} />}
+        {section === 'units' && <UnitsSetting config={config} updateConfig={updateConfig} />}
+        {(section === 'push' || section === 'pull' || section === 'legs') && (
+          <ExerciseEditor category={section} config={config} updateConfig={updateConfig} />
+        )}
+        {section === 'data' && <DataSection onExport={exportData} workouts={workouts} diet={diet} updateConfig={updateConfig} config={config} />}
+      </div>
+    </div>
+  );
+}
+
+function MacroTargets({ config, updateConfig }) {
+  const t = config.macroTargets;
+  const set = (k, v) => updateConfig({ ...config, macroTargets: { ...t, [k]: Number(v) || 0 } });
+  const cal = calcCal(t.protein, t.carbs, t.fats);
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.3em] mb-1" style={{ color: MUTED }}>Daily Calorie Target</div>
+        <div style={{ fontFamily: F_DISPLAY, fontSize: 36, color: ACCENT, lineHeight: 1 }}>{cal} <span style={{ fontSize: 14, color: MUTED }}>kcal</span></div>
+        <div className="text-xs mt-1" style={{ color: DIM }}>Auto-calculated from your macros</div>
+      </div>
+      <div className="space-y-3">
+        {[
+          { k: 'protein', label: 'Protein', c: '#fb7185' },
+          { k: 'carbs', label: 'Carbs', c: '#60a5fa' },
+          { k: 'fats', label: 'Fats', c: '#fbbf24' },
+        ].map((m) => (
+          <div key={m.k} className="rounded-xl p-3 border" style={{ background: CARD, borderColor: BORDER }}>
+            <div className="text-[11px] uppercase tracking-[0.2em] mb-2 font-bold" style={{ color: m.c }}>{m.label}</div>
+            <NumberInput value={t[m.k]} onChange={(v) => set(m.k, v)} suffix="g" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function UnitsSetting({ config, updateConfig }) {
+  return (
+    <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+      <div className="text-[10px] uppercase tracking-[0.3em] mb-3" style={{ color: MUTED }}>Weight Units</div>
+      <div className="flex gap-2">
+        {['kg', 'lbs'].map((u) => (
+          <button
+            key={u}
+            onClick={() => updateConfig({ ...config, units: u })}
+            className="flex-1 rounded-xl py-3 border transition-all"
+            style={{
+              background: config.units === u ? ACCENT : 'transparent',
+              color: config.units === u ? BG : TEXT,
+              borderColor: config.units === u ? ACCENT : BORDER,
+              fontFamily: F_DISPLAY, fontSize: 22, letterSpacing: '0.05em',
+            }}
+          >{u.toUpperCase()}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExerciseEditor({ category, config, updateConfig }) {
+  const list = config.exercises[category] || [];
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState('');
+  const [type, setType] = useState('weight');
+  const [notes, setNotes] = useState('');
+
+  const update = (newList) => {
+    updateConfig({ ...config, exercises: { ...config.exercises, [category]: newList } });
+  };
+
+  const addEx = () => {
+    if (!name.trim()) return;
+    update([...list, { id: genId(), name: name.trim(), type, notes: notes.trim() || undefined }]);
+    setName(''); setNotes(''); setType('weight'); setAdding(false);
+  };
+
+  const removeEx = (id) => {
+    update(list.filter((e) => e.id !== id));
+  };
+
+  const renameEx = (id, newName) => {
+    update(list.map((e) => e.id === id ? { ...e, name: newName } : e));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] uppercase tracking-[0.2em] mb-2" style={{ color: CAT_COLOR[category], fontWeight: 700 }}>{category} exercises</div>
+      {list.map((ex) => (
+        <ExerciseEditRow key={ex.id} ex={ex} onRename={(n) => renameEx(ex.id, n)} onRemove={() => removeEx(ex.id)} />
+      ))}
+      {!adding ? (
+        <button onClick={() => setAdding(true)} className="w-full rounded-xl py-3 border flex items-center justify-center gap-2 transition-all" style={{ borderColor: BORDER, color: MUTED, borderStyle: 'dashed' }}>
+          <Plus size={16} />
+          <span className="text-xs uppercase tracking-wider">Add Exercise</span>
+        </button>
+      ) : (
+        <div className="rounded-xl p-3 border space-y-2" style={{ background: CARD, borderColor: ACCENT }}>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Exercise name" className="w-full rounded-lg px-3 py-2 outline-none border" style={{ background: CARD_HI, borderColor: BORDER, color: TEXT, fontSize: 14 }} />
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes (optional)" className="w-full rounded-lg px-3 py-2 outline-none border" style={{ background: CARD_HI, borderColor: BORDER, color: TEXT, fontSize: 13 }} />
+          <div className="flex gap-2">
+            {['weight', 'time'].map((t) => (
+              <button key={t} onClick={() => setType(t)} className="flex-1 rounded-lg py-2 border text-xs uppercase tracking-wider" style={{ background: type === t ? ACCENT : 'transparent', color: type === t ? BG : MUTED, borderColor: type === t ? ACCENT : BORDER, fontWeight: 700 }}>
+                {t === 'weight' ? 'Weight × Reps' : 'Time'}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button onClick={addEx} className="flex-1 rounded-lg py-2" style={{ background: ACCENT, color: BG, fontWeight: 700, fontSize: 12 }}>Add</button>
+            <button onClick={() => { setAdding(false); setName(''); setNotes(''); }} className="rounded-lg px-3 border" style={{ borderColor: BORDER, color: MUTED }}><X size={16} /></button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExerciseEditRow({ ex, onRename, onRemove }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(ex.name);
+  return (
+    <div className="rounded-xl p-3 border flex items-center gap-2" style={{ background: CARD, borderColor: BORDER }}>
+      {editing ? (
+        <>
+          <input type="text" value={val} onChange={(e) => setVal(e.target.value)} className="flex-1 rounded-lg px-2 py-1 outline-none border" style={{ background: CARD_HI, borderColor: ACCENT, color: TEXT, fontSize: 14 }} autoFocus />
+          <button onClick={() => { onRename(val); setEditing(false); }} className="rounded p-1.5" style={{ background: ACCENT, color: BG }}><Check size={14} /></button>
+          <button onClick={() => { setVal(ex.name); setEditing(false); }} style={{ color: MUTED }}><X size={16} /></button>
+        </>
+      ) : (
+        <>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm">{ex.name}</div>
+            {ex.notes && <div className="text-[11px] mt-0.5" style={{ color: DIM }}>{ex.notes}</div>}
+            <div className="text-[10px] uppercase tracking-wider mt-0.5" style={{ color: MUTED }}>{ex.type === 'time' ? 'Time' : 'Weight × Reps'}</div>
+          </div>
+          <button onClick={() => setEditing(true)} style={{ color: MUTED }}><Edit2 size={14} /></button>
+          <button onClick={onRemove} style={{ color: '#fb7185' }}><Trash2 size={14} /></button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function DataSection({ onExport, workouts, diet, updateConfig, config }) {
+  const [confirmReset, setConfirmReset] = useState(false);
+  const reset = () => {
+    saveKey('workouts', []);
+    saveKey('diet', []);
+    saveKey('bodyweight', []);
+    window.location.reload();
+  };
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl p-4 border" style={{ background: CARD, borderColor: BORDER }}>
+        <div className="text-[10px] uppercase tracking-[0.3em]" style={{ color: MUTED }}>Stored</div>
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          <div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 28 }}>{workouts.length}</div>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>workout entries</div>
+          </div>
+          <div>
+            <div style={{ fontFamily: F_DISPLAY, fontSize: 28 }}>{diet.length}</div>
+            <div className="text-[10px] uppercase tracking-wider" style={{ color: MUTED }}>diet entries</div>
+          </div>
+        </div>
+      </div>
+      <button onClick={onExport} className="w-full rounded-xl py-3 border flex items-center justify-center gap-2" style={{ borderColor: ACCENT, color: ACCENT }}>
+        <Download size={16} />
+        <span className="text-xs uppercase tracking-wider font-bold">Export All Data (JSON)</span>
+      </button>
+      <button onClick={() => updateConfig(DEFAULT_CONFIG)} className="w-full rounded-xl py-3 border flex items-center justify-center gap-2" style={{ borderColor: BORDER, color: MUTED }}>
+        <ScrollText size={16} />
+        <span className="text-xs uppercase tracking-wider">Reset Exercise List to Default</span>
+      </button>
+      {!confirmReset ? (
+        <button onClick={() => setConfirmReset(true)} className="w-full rounded-xl py-3 border flex items-center justify-center gap-2" style={{ borderColor: '#fb7185', color: '#fb7185' }}>
+          <Trash2 size={16} />
+          <span className="text-xs uppercase tracking-wider font-bold">Erase All Logs</span>
+        </button>
+      ) : (
+        <div className="rounded-xl p-3 border" style={{ background: CARD, borderColor: '#fb7185' }}>
+          <div className="text-sm mb-3" style={{ color: TEXT }}>This deletes ALL workouts, diet, and bodyweight entries. Are you sure?</div>
+          <div className="flex gap-2">
+            <button onClick={reset} className="flex-1 rounded-lg py-2 text-xs uppercase tracking-wider font-bold" style={{ background: '#fb7185', color: BG }}>Yes, Erase</button>
+            <button onClick={() => setConfirmReset(false)} className="flex-1 rounded-lg py-2 text-xs uppercase tracking-wider border" style={{ borderColor: BORDER, color: MUTED }}>Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ============ PASSWORD GATE ============
+function PasswordGate({ children }) {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem('gymauth') === '1');
+  const [storedHash, setStoredHash] = useState(() => localStorage.getItem('gymtracker_pwhash'));
+  const [pw, setPw] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const setupMode = !storedHash;
+
+  useEffect(() => {
+    if (window.location.search.includes('reset')) {
+      if (window.confirm('Reset password? Your gym data stays — you\'ll just be asked to set a new password.')) {
+        localStorage.removeItem('gymtracker_pwhash');
+        sessionStorage.removeItem('gymauth');
+        window.location.href = window.location.pathname;
+      }
+    }
+  }, []);
+
+  const hashPw = async (str) => {
+    const buf = new TextEncoder().encode(str);
+    const hashBuf = await crypto.subtle.digest('SHA-256', buf);
+    return Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setBusy(true);
+    try {
+      if (setupMode) {
+        if (pw.length < 4) { setError('At least 4 characters'); return; }
+        if (pw !== pw2) { setError('Passwords don\'t match'); return; }
+        const h = await hashPw(pw);
+        localStorage.setItem('gymtracker_pwhash', h);
+        sessionStorage.setItem('gymauth', '1');
+        setStoredHash(h);
+        setUnlocked(true);
+      } else {
+        const h = await hashPw(pw);
+        if (h === storedHash) {
+          sessionStorage.setItem('gymauth', '1');
+          setUnlocked(true);
+        } else {
+          setError('Wrong password');
+          setPw('');
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (unlocked) return children;
+
+  const inputStyle = { width: '100%', background: '#1f1c19', border: '1px solid #2a2724', borderRadius: 12, padding: '14px 16px', color: '#f5f3ef', fontFamily: "'JetBrains Mono', monospace", fontSize: 16, outline: 'none', boxSizing: 'border-box' };
+  const labelStyle = { fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', color: '#8a8580', fontWeight: 700, display: 'block', marginBottom: 8 };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0a0908', color: '#f5f3ef', fontFamily: "'Manrope', system-ui, sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+      <form onSubmit={onSubmit} style={{ width: '100%', maxWidth: 360 }}>
+        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+          <div style={{ fontSize: 10, letterSpacing: '0.3em', color: '#8a8580', textTransform: 'uppercase', fontWeight: 700 }}>{setupMode ? 'First Time Setup' : 'Locked'}</div>
+          <div style={{ fontFamily: "'Bebas Neue', Impact, sans-serif", fontSize: 52, lineHeight: 1, color: '#ccff00', letterSpacing: '0.02em', marginTop: 6 }}>GYM TRACKER</div>
+        </div>
+        <div style={{ background: '#161412', border: '1px solid #2a2724', borderRadius: 16, padding: 20 }}>
+          <label style={labelStyle}>{setupMode ? 'Choose Password' : 'Password'}</label>
+          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoFocus autoComplete={setupMode ? 'new-password' : 'current-password'} style={inputStyle} />
+          {setupMode && (
+            <div style={{ marginTop: 14 }}>
+              <label style={labelStyle}>Confirm</label>
+              <input type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} autoComplete="new-password" style={inputStyle} />
+            </div>
+          )}
+          {error && <div style={{ color: '#fb7185', fontSize: 12, marginTop: 12, textAlign: 'center' }}>{error}</div>}
+          <button type="submit" disabled={busy} style={{ width: '100%', marginTop: 16, background: '#ccff00', color: '#0a0908', border: 'none', borderRadius: 12, padding: 14, fontWeight: 800, fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase', cursor: 'pointer', opacity: busy ? 0.6 : 1 }}>
+            {setupMode ? 'Set Password' : 'Unlock'}
+          </button>
+        </div>
+        {setupMode ? (
+          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 11, color: '#5a5550', lineHeight: 1.5 }}>
+            Stored as a hash on this device only.<br />Each device has its own password.
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', marginTop: 14, fontSize: 11, color: '#5a5550' }}>
+            Forgot? Add <code style={{ color: '#8a8580', background: '#1f1c19', padding: '2px 6px', borderRadius: 4 }}>?reset</code> to the URL
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}
+
+
+// === Render ===
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<PasswordGate><App /></PasswordGate>);
+
+</script>
+</body>
+</html>
