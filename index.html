@@ -195,17 +195,6 @@ const saveKey = (key, val) => {
   catch (e) { console.error('Save failed', key, e); return false; }
 };
 
-// ============ FONTS ============
-const useFonts = () => {
-  useEffect(() => {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap';
-    document.head.appendChild(link);
-    return () => { try { document.head.removeChild(link); } catch {} };
-  }, []);
-};
-
 const F_DISPLAY = "'Bebas Neue', Impact, sans-serif";
 const F_BODY = "'Manrope', system-ui, sans-serif";
 const F_MONO = "'JetBrains Mono', monospace";
@@ -261,7 +250,6 @@ const NumberInput = ({ value, onChange, placeholder, step = 1, suffix }) => (
 
 // ============ MAIN APP ============
 function App() {
-  useFonts();
   const [tab, setTab] = useState('overview');
   const [config, setConfig] = useState(() => {
     const c = loadKey('config', DEFAULT_CONFIG);
@@ -270,7 +258,6 @@ function App() {
   const [workouts, setWorkouts] = useState(() => loadKey('workouts', []));
   const [diet, setDiet] = useState(() => loadKey('diet', []));
   const [bodyweight, setBodyweight] = useState(() => loadKey('bodyweight', []));
-  const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
@@ -300,17 +287,6 @@ function App() {
   const updateWorkouts = (next) => { setWorkouts(next); persist('workouts', next); };
   const updateDiet = (next) => { setDiet(next); persist('diet', next); };
   const updateBodyweight = (next) => { setBodyweight(next); persist('bodyweight', next); };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: BG, color: TEXT, fontFamily: F_BODY }}>
-        <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: ACCENT }} />
-          <span className="text-xs uppercase tracking-[0.3em]" style={{ color: MUTED }}>Loading</span>
-        </div>
-      </div>
-    );
-  }
 
   const tabs = [
     { id: 'overview', icon: Home, label: 'Home', color: ACCENT },
@@ -492,7 +468,9 @@ function Overview({ config, workouts, diet, bodyweight, updateBodyweight, onOpen
   }, [workouts, config]);
 
   // Bodyweight latest
-  const latestBW = bodyweight.length > 0 ? bodyweight.sort((a, b) => b.date.localeCompare(a.date))[0] : null;
+  const latestBW = useMemo(() =>
+    bodyweight.length > 0 ? [...bodyweight].sort((a, b) => b.date.localeCompare(a.date))[0] : null,
+    [bodyweight]);
 
   return (
     <div className="space-y-5">
@@ -1290,9 +1268,10 @@ function AnalyticsVolume({ config, workouts }) {
   // Weekly volume by category, last 8 weeks
   const data = useMemo(() => {
     const today = todayStr();
+    const thisWeekStart = startOfWeek(today);
     const weeks = [];
     for (let i = 7; i >= 0; i--) {
-      const ws = startOfWeek(today);
+      const ws = new Date(thisWeekStart);
       ws.setDate(ws.getDate() - i * 7);
       const we = new Date(ws);
       we.setDate(we.getDate() + 7);
@@ -1375,9 +1354,10 @@ function AnalyticsFrequency({ workouts }) {
   // Sessions per week, last 12 weeks
   const data = useMemo(() => {
     const today = todayStr();
+    const thisWeekStart = startOfWeek(today);
     const weeks = [];
     for (let i = 11; i >= 0; i--) {
-      const ws = startOfWeek(today);
+      const ws = new Date(thisWeekStart);
       ws.setDate(ws.getDate() - i * 7);
       const we = new Date(ws);
       we.setDate(we.getDate() + 7);
@@ -1481,9 +1461,8 @@ function AnalyticsFrequency({ workouts }) {
 }
 
 function AnalyticsInsights({ config, workouts }) {
-  const allEx = [...config.exercises.push, ...config.exercises.pull, ...config.exercises.legs];
-
   const insights = useMemo(() => {
+    const allEx = [...config.exercises.push, ...config.exercises.pull, ...config.exercises.legs];
     const out = [];
     if (workouts.length === 0) return out;
 
@@ -1537,7 +1516,7 @@ function AnalyticsInsights({ config, workouts }) {
       out.push({ type: 'good', icon: Check, color: ACCENT, text: 'Everything looks solid. Keep at it.' });
     }
     return out;
-  }, [workouts, allEx, config.units]);
+  }, [workouts, config]);
 
   return (
     <div className="space-y-3">
